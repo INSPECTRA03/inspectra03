@@ -1,0 +1,5 @@
+ngo_id,ngo_name,description,sectors,locations,beneficiary_types,experience
+1,Green Earth NGO,Focuses on environmental conservation and tree planting.,Environment|Education,Coimbatore|Chennai,General Public,10 years of afforestation projects
+2,EduCare India,Provides free education to underprivileged children.,Education,Chennai|Madurai,Children,5 years running rural schools
+3,HealthPlus Foundation,Offers free medical camps and health awareness.,Healthcare,Coimbatore|Salem,Women|Children,15 years in rural healthcare
+4,SkillUp Org,Vocational training for youth empowerment.,Education|Livelihood,Bangalore|Chennai,Youth,8 years in skill development
