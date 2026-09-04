@@ -76,6 +76,25 @@ def test_get_individual_csr_need():
 
 # --- AI Analysis Tests ---
 
+
+class MockOpenAIResponse:
+    def __init__(self, text):
+        self.message = type('obj', (object,), {'content': text})
+        self.choices = [type('obj', (object,), {'message': self.message})]
+
+class MockOpenAIClient:
+    def __init__(self, mock_return_text):
+        self.mock_return_text = mock_return_text
+        self.chat = type('obj', (object,), {'completions': type('obj', (object,), {'create': self.create})})()
+        
+    def create(self, **kwargs):
+        if self.mock_return_text == "API_ERROR":
+            raise Exception("Mocked API Error")
+        return MockOpenAIResponse(self.mock_return_text)
+
+def mock_get_client_factory(text):
+    return lambda: MockOpenAIClient(text)
+
 class MockGeminiResponse:
     def __init__(self, text):
         self.text = text
@@ -110,19 +129,19 @@ def test_analyze_csr_need_missing_api_key(monkeypatch):
     assert "missing" in response.json()["detail"].lower()
 
 def test_analyze_csr_need_api_failure(monkeypatch):
-    import google.generativeai as genai
-    monkeypatch.setattr(genai, "GenerativeModel", lambda *a, **k: MockGeminiModel("API_ERROR"))
+    import app.services.gemini_service as gemini_service
+    monkeypatch.setattr(gemini_service, "get_client", mock_get_client_factory("API_ERROR"))
     
     res = client.get("/api/csr-needs")
     need_id = res.json()[0]["id"]
     
     response = client.post("/api/ai/analyze-need", json={"csr_need_id": need_id})
     assert response.status_code == 500
-    assert "Mocked Gemini API Error" in response.json()["detail"]
+    assert "Mocked API Error" in response.json()["detail"]
 
 def test_analyze_csr_need_invalid_json(monkeypatch):
-    import google.generativeai as genai
-    monkeypatch.setattr(genai, "GenerativeModel", lambda *a, **k: MockGeminiModel("Not JSON format"))
+    import app.services.gemini_service as gemini_service
+    monkeypatch.setattr(gemini_service, "get_client", mock_get_client_factory("Not JSON format"))
     
     res = client.get("/api/csr-needs")
     need_id = res.json()[0]["id"]
@@ -132,9 +151,9 @@ def test_analyze_csr_need_invalid_json(monkeypatch):
     assert "Failed to parse" in response.json()["detail"]
 
 def test_analyze_csr_need_missing_fields(monkeypatch):
-    import google.generativeai as genai
-    invalid_json = '{"summary": "test"}' # Missing other fields
-    monkeypatch.setattr(genai, "GenerativeModel", lambda *a, **k: MockGeminiModel(invalid_json))
+    import app.services.gemini_service as gemini_service
+    invalid_json = '{"summary": "test"}'
+    monkeypatch.setattr(gemini_service, "get_client", mock_get_client_factory(invalid_json))
     
     res = client.get("/api/csr-needs")
     need_id = res.json()[0]["id"]
@@ -144,18 +163,18 @@ def test_analyze_csr_need_missing_fields(monkeypatch):
     assert "missing required fields" in response.json()["detail"]
 
 def test_analyze_csr_need_success(monkeypatch):
-    import google.generativeai as genai
-    valid_json = '''
+    import app.services.gemini_service as gemini_service
+    valid_json = """
     {
       "summary": "Need summary.",
-      "identified_category": "Education",
-      "beneficiary_group": "Children",
-      "required_intervention": "Buy books",
+      "identified_category": "b",
+      "beneficiary_group": "c",
+      "required_intervention": "d",
       "key_need": "Books",
       "analysis": "Great project."
     }
-    '''
-    monkeypatch.setattr(genai, "GenerativeModel", lambda *a, **k: MockGeminiModel(valid_json))
+    """
+    monkeypatch.setattr(gemini_service, "get_client", mock_get_client_factory(valid_json))
     
     res = client.get("/api/csr-needs")
     need_id = res.json()[0]["id"]
@@ -188,8 +207,8 @@ def test_priority_missing_ai_analysis():
     assert "AI analysis is required" in response.json()["detail"]
 
 def test_priority_calculation_low(monkeypatch):
-    import google.generativeai as genai
-    monkeypatch.setattr(genai, "GenerativeModel", lambda *a, **k: MockGeminiModel('{"summary":"t","identified_category":"t","beneficiary_group":"t","required_intervention":"t","key_need":"t","analysis":"t"}'))
+    import app.services.gemini_service as gemini_service
+    monkeypatch.setattr(gemini_service, "get_client", mock_get_client_factory('{"summary":"t","identified_category":"t","beneficiary_group":"t","required_intervention":"t","key_need":"t","analysis":"t"}'))
     
     res = client.post("/api/csr-needs", json={"state": "TS", "district": "HYD", "city_locality": "Banjara", "category": "Education", "beneficiary_type": "Kids", "beneficiary_count": 50, "urgency": "LOW", "description": "Needs"})
     need_id = res.json()["id"]
@@ -204,8 +223,8 @@ def test_priority_calculation_low(monkeypatch):
     assert "Low urgency combined with a small beneficiary population (1-100)" in data["reason"]
 
 def test_priority_calculation_high(monkeypatch):
-    import google.generativeai as genai
-    monkeypatch.setattr(genai, "GenerativeModel", lambda *a, **k: MockGeminiModel('{"summary":"t","identified_category":"t","beneficiary_group":"t","required_intervention":"t","key_need":"t","analysis":"t"}'))
+    import app.services.gemini_service as gemini_service
+    monkeypatch.setattr(gemini_service, "get_client", mock_get_client_factory('{"summary":"t","identified_category":"t","beneficiary_group":"t","required_intervention":"t","key_need":"t","analysis":"t"}'))
     
     res = client.post("/api/csr-needs", json={"state": "TS", "district": "HYD", "city_locality": "Banjara", "category": "Healthcare", "beneficiary_type": "Kids", "beneficiary_count": 550, "urgency": "HIGH", "description": "Needs"})
     need_id = res.json()["id"]
@@ -282,3 +301,158 @@ def test_get_csr_projects_by_ngo():
     data = res.json()
     assert len(data) == 2
     assert "d1" in [p["description"] for p in data]
+
+def test_api_matching_generation():
+    client = TestClient(app)
+    db = TestingSessionLocal()
+    # Seed a CSR need and NGO if none exist
+    need = CSRNeed(state="TN", district="CBE", city_locality="RS Puram", category="Education", description="Test", beneficiary_type="Students", beneficiary_count=100, urgency="HIGH")
+    db.add(need)
+    ngo = NGO(name="Edu NGO", description="Test", sectors="Education", locations="Coimbatore", beneficiary_types="Students", experience="5")
+    db.add(ngo)
+    db.commit()
+    need_id = need.id
+    
+    response = client.post(f"/api/csr-needs/{need_id}/matches")
+    assert response.status_code == 200
+    data = response.json()
+    assert "matches" in data
+    assert len(data["matches"]) > 0
+    assert data["matches"][0]["match_score"] > 0
+    assert "ngo_name" in data["matches"][0]
+    
+    db.refresh(need)
+    assert need.status == "MATCHED"
+
+def test_api_matching_duplicate_prevention():
+    client = TestClient(app)
+    db = TestingSessionLocal()
+    # Assume need_id 1 is there from previous test due to persistence, or we can just query first
+    need = db.query(CSRNeed).first()
+    if not need:
+        need = CSRNeed(state="TN", district="CBE", city_locality="RS Puram", category="Education", description="Test", beneficiary_type="Students", beneficiary_count=100, urgency="HIGH")
+        db.add(need)
+        db.commit()
+    
+    need_id = need.id
+    response1 = client.post(f"/api/csr-needs/{need_id}/matches")
+    count1 = len(response1.json()["matches"])
+    
+    response2 = client.post(f"/api/csr-needs/{need_id}/matches")
+    count2 = len(response2.json()["matches"])
+    
+    response_get = client.get(f"/api/csr-needs/{need_id}/matches")
+    assert len(response_get.json()["matches"]) == count1
+
+def test_api_get_matches_none():
+    client = TestClient(app)
+    response = client.get("/api/csr-needs/9999/matches")
+    assert response.status_code == 404
+
+
+# =============== RECOMMENENDATION TESTS ===============
+from unittest.mock import patch
+dummy_rec_response = {
+    "summary": "This is a great dummy match.",
+    "why_match": ["Because it matches."],
+    "strengths": ["Strong."],
+    "considerations": ["None."],
+    "confidence_note": "Just testing."
+}
+
+def mock_gemini(*args, **kwargs):
+    return dummy_rec_response
+
+
+
+
+@patch('app.services.recommendation_service.generate_match_explanation', mock_gemini)
+def test_api_recommendation_generation():
+    client = TestClient(app)
+    db = TestingSessionLocal()
+    need = db.query(CSRNeed).first()
+    if not need:
+        need = CSRNeed(state="TN", district="CBE", city_locality="RS Puram", category="Education", description="Test", beneficiary_type="Students", beneficiary_count=100, urgency="HIGH")
+        db.add(need)
+        ngo = NGO(name="Edu NGO", description="Test", sectors="Education", locations="Coimbatore", beneficiary_types="Students", experience="5")
+        db.add(ngo)
+        db.commit()
+    
+    need_id = need.id
+    client.post(f"/api/csr-needs/{need_id}/matches")
+    response = client.post(f"/api/csr-needs/{need_id}/recommendations")
+    assert response.status_code == 200
+    data = response.json()
+    assert "recommendations" in data
+
+@patch('app.services.recommendation_service.generate_match_explanation', mock_gemini)
+def test_api_recs_duplicate_prevention():
+    client = TestClient(app)
+    db = TestingSessionLocal()
+    need = db.query(CSRNeed).first()
+    need_id = need.id
+    response1 = client.post(f"/api/csr-needs/{need_id}/recommendations")
+    response2 = client.post(f"/api/csr-needs/{need_id}/recommendations")
+    assert len(response1.json()["recommendations"]) == len(response2.json()["recommendations"])
+
+
+
+def test_api_status_history():
+    client = TestClient(app)
+    db = TestingSessionLocal()
+    need = db.query(CSRNeed).first()
+    if not need:
+        need = CSRNeed(state="TN", district="CBE", city_locality="RS Puram", category="Education", description="Test", beneficiary_type="Students", beneficiary_count=100, urgency="HIGH")
+        db.add(need)
+        db.commit()
+    
+    response = client.get(f"/api/csr-needs/{need.id}/status-history")
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    statuses = [item["status"] for item in data]
+    assert "NEED_IDENTIFIED" in statuses
+
+def test_api_status_history_404():
+    client = TestClient(app)
+    response = client.get("/api/csr-needs/9999/status-history")
+    assert response.status_code == 404
+
+
+def test_api_dashboard_summary():
+    client = TestClient(app)
+    response = client.get("/api/dashboard/summary")
+    assert response.status_code == 200
+    data = response.json()
+    assert "metrics" in data
+    assert "total_csr_needs" in data["metrics"]
+    assert "status_counts" in data
+    assert "priority_counts" in data
+    assert "recent_needs" in data
+
+
+
+def test_api_recs_404():
+    client = TestClient(app)
+    response = client.get("/api/csr-needs/9999/recommendations")
+    assert response.status_code == 404
+
+def test_api_matches_404():
+    client = TestClient(app)
+    response = client.get("/api/csr-needs/9999/matches")
+    assert response.status_code == 404
+def test_get_global_recommendations():
+    client = TestClient(app)
+    # Retrieve all recommendations globally
+    response = client.get("/api/recommendations")
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    # Validate the mock/seed data exists if applicable
+    if len(data) > 0:
+        first_rec = data[0]
+        assert "csr_need_id" in first_rec
+        assert "ngo_id" in first_rec
+        assert "match_score" in first_rec
+        assert "explanation" in first_rec

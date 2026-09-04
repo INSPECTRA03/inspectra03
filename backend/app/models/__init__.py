@@ -17,11 +17,15 @@ class PriorityEnum(str, enum.Enum):
 class StatusEnum(str, enum.Enum):
     NEED_IDENTIFIED = "NEED_IDENTIFIED"
     AI_ASSESSMENT = "AI_ASSESSMENT"
+    PRIORITIZED = "PRIORITIZED"
+    MATCHED = "MATCHED"
+    RECOMMENDED = "RECOMMENDED"
     NGO_MATCHING = "NGO_MATCHING"
     NGO_SHORTLISTED = "NGO_SHORTLISTED"
     PARTNERSHIP_DISCUSSION = "PARTNERSHIP_DISCUSSION"
     PROJECT_INITIATED = "PROJECT_INITIATED"
     COMPLETED = "COMPLETED"
+
 
 class User(Base):
     __tablename__ = "users"
@@ -66,6 +70,29 @@ class CSRNeed(Base):
     status_history = relationship("StatusHistory", back_populates="csr_need")
 
 
+
+class DocumentStatusEnum(str, enum.Enum):
+    NOT_SUBMITTED = "NOT_SUBMITTED"
+    SUBMITTED = "SUBMITTED"
+    UNDER_REVIEW = "UNDER_REVIEW"
+    VERIFIED = "VERIFIED"
+    REQUIRES_ATTENTION = "REQUIRES_ATTENTION"
+
+class NGODocument(Base):
+    __tablename__ = "ngo_documents"
+    id = Column(Integer, primary_key=True, index=True)
+    ngo_id = Column(Integer, ForeignKey("ngos.id"), nullable=False, index=True)
+    document_type = Column(String, nullable=False)
+    file_name = Column(String, nullable=False)
+    file_reference = Column(String, nullable=False)
+    file_type = Column(String, nullable=False)
+    file_size = Column(Integer, nullable=False)
+    status = Column(SQLEnum(DocumentStatusEnum, name="documentstatusenum", create_constraint=True), default=DocumentStatusEnum.SUBMITTED, nullable=False)
+    uploaded_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    verified_at = Column(DateTime, nullable=True)
+
+    ngo = relationship("NGO", back_populates="documents")
+
 class NGO(Base):
     __tablename__ = "ngos"
     id = Column(Integer, primary_key=True, index=True)
@@ -80,6 +107,7 @@ class NGO(Base):
 
     matches = relationship("Match", back_populates="ngo")
     recommendations = relationship("Recommendation", back_populates="ngo")
+    documents = relationship("NGODocument", back_populates="ngo", cascade="all, delete-orphan")
 
 
 class CSRProject(Base):

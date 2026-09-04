@@ -1,9 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Response, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from app.db.database import get_db
+from app.models import NGODocument, DocumentStatusEnum
+import shutil
+import uuid
+import os
 from app.models import CSRNeed, NGO, CSRProject, StatusHistory, StatusEnum
-from app.schemas import CSRNeedResponse, CSRNeedCreate, NGOResponse, CSRProjectResponse, LocationResponse, AnalyzeNeedRequest
+from app.schemas import MatchListResponse, RecommendationListResponse, CSRNeedResponse, StatusHistoryResponse, DashboardSummaryResponse, CSRNeedCreate, NGOResponse, CSRProjectResponse, LocationResponse, AnalyzeNeedRequest
 import csv
 import os
 
@@ -124,6 +129,8 @@ def get_locations():
     return locations
 
 from app.services.gemini_service import analyze_csr_need
+from app.services.matching_service import generate_matches_for_csr_need, get_matches_for_csr_need
+from app.services.recommendation_service import generate_recommendations_for_csr_need, get_recommendations_for_csr_need
 
 @router.post("/api/ai/analyze-need")
 def analyze_need(req: AnalyzeNeedRequest, db: Session = Depends(get_db)):
@@ -199,6 +206,12 @@ def assess_csr_priority(need_id: int, db: Session = Depends(get_db)):
         else:
             need.priority = PriorityEnum.LOW
             
+        # Update status
+        if need.status in [StatusEnum.NEED_IDENTIFIED, StatusEnum.AI_ASSESSMENT]:
+            need.status = StatusEnum.PRIORITIZED
+            status_hist = StatusHistory(csr_need_id=need.id, status=need.status)
+            db.add(status_hist)
+            
         db.commit()
         db.refresh(need)
         
@@ -214,3 +227,276 @@ def assess_csr_priority(need_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+
+@router.post("/api/csr-needs/{csr_need_id}/matches", response_model=MatchListResponse)
+def generate_matches(csr_need_id: int, db: Session = Depends(get_db)):
+    result = generate_matches_for_csr_need(db, csr_need_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="CSR Need not found")
+    return result
+
+
+@router.get("/api/recommendations", response_model=List[Dict[str, Any]])
+def get_all_recommendations(db: Session = Depends(get_db)):
+    from app.models import Recommendation, Match
+    import json
+    
+    recs = db.query(Recommendation).order_by(Recommendation.created_at.desc()).all()
+    if not recs:
+        return []
+        
+    matches = db.query(Match).filter(Match.id.in_([r.match_id for r in recs])).all()
+    match_dict = {m.id: m for m in matches}
+    
+    results = []
+    for r in recs:
+        m = match_dict.get(r.match_id)
+        if not m:
+            continue
+            
+        ngo = m.ngo
+        need = r.csr_need
+        
+        try:
+            expl = json.loads(r.explanation)
+        except:
+            expl = {
+                "summary": "Explanation unavailable.", 
+                "why_match": [], "strengths": [], "considerations": [], "confidence_note": ""
+            }
+            
+        results.append({
+            "id": r.id,
+            "csr_need_id": r.csr_need_id,
+            "csr_need_category": need.ai_identified_category or need.category if need else "Unknown",
+            "csr_need_location": f"{need.city_locality}, {need.district}" if need else "Unknown",
+            "csr_need_status": getattr(need.status, 'name', need.status) if hasattr(need, 'status') else "",
+            "ngo_id": r.ngo_id,
+            "match_id": r.match_id,
+            "ngo_name": ngo.name if ngo else "",
+            "match_score": m.match_score,
+            "explanation": expl
+        })
+    return results
+
+
+@router.get("/api/csr-needs/{csr_need_id}/matches", response_model=MatchListResponse)
+def get_matches(csr_need_id: int, db: Session = Depends(get_db)):
+    result = get_matches_for_csr_need(db, csr_need_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="CSR Need not found")
+    return result
+
+
+@router.get("/api/recommendations", response_model=List[Dict[str, Any]])
+def get_all_recommendations(db: Session = Depends(get_db)):
+    from app.models import Recommendation, Match
+    import json
+    
+    recs = db.query(Recommendation).order_by(Recommendation.created_at.desc()).all()
+    if not recs:
+        return []
+        
+    matches = db.query(Match).filter(Match.id.in_([r.match_id for r in recs])).all()
+    match_dict = {m.id: m for m in matches}
+    
+    results = []
+    for r in recs:
+        m = match_dict.get(r.match_id)
+        if not m:
+            continue
+            
+        ngo = m.ngo
+        need = r.csr_need
+        
+        try:
+            expl = json.loads(r.explanation)
+        except:
+            expl = {
+                "summary": "Explanation unavailable.", 
+                "why_match": [], "strengths": [], "considerations": [], "confidence_note": ""
+            }
+            
+        results.append({
+            "id": r.id,
+            "csr_need_id": r.csr_need_id,
+            "csr_need_category": need.ai_identified_category or need.category if need else "Unknown",
+            "csr_need_location": f"{need.city_locality}, {need.district}" if need else "Unknown",
+            "csr_need_status": getattr(need.status, 'name', need.status) if hasattr(need, 'status') else "",
+            "ngo_id": r.ngo_id,
+            "match_id": r.match_id,
+            "ngo_name": ngo.name if ngo else "",
+            "match_score": m.match_score,
+            "explanation": expl
+        })
+    return results
+
+
+
+@router.post("/api/csr-needs/{csr_need_id}/recommendations", response_model=RecommendationListResponse)
+def generate_recommendations(csr_need_id: int, db: Session = Depends(get_db)):
+    from app.services.recommendation_service import generate_recommendations_for_csr_need
+    result = generate_recommendations_for_csr_need(db, csr_need_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="CSR Need not found")
+    return result
+
+
+@router.get("/api/recommendations", response_model=List[Dict[str, Any]])
+def get_all_recommendations(db: Session = Depends(get_db)):
+    from app.models import Recommendation, Match
+    import json
+    
+    recs = db.query(Recommendation).order_by(Recommendation.created_at.desc()).all()
+    if not recs:
+        return []
+        
+    matches = db.query(Match).filter(Match.id.in_([r.match_id for r in recs])).all()
+    match_dict = {m.id: m for m in matches}
+    
+    results = []
+    for r in recs:
+        m = match_dict.get(r.match_id)
+        if not m:
+            continue
+            
+        ngo = m.ngo
+        need = r.csr_need
+        
+        try:
+            expl = json.loads(r.explanation)
+        except:
+            expl = {
+                "summary": "Explanation unavailable.", 
+                "why_match": [], "strengths": [], "considerations": [], "confidence_note": ""
+            }
+            
+        results.append({
+            "id": r.id,
+            "csr_need_id": r.csr_need_id,
+            "csr_need_category": need.ai_identified_category or need.category if need else "Unknown",
+            "csr_need_location": f"{need.city_locality}, {need.district}" if need else "Unknown",
+            "csr_need_status": getattr(need.status, 'name', need.status) if hasattr(need, 'status') else "",
+            "ngo_id": r.ngo_id,
+            "match_id": r.match_id,
+            "ngo_name": ngo.name if ngo else "",
+            "match_score": m.match_score,
+            "explanation": expl
+        })
+    return results
+
+
+@router.get("/api/csr-needs/{csr_need_id}/recommendations", response_model=RecommendationListResponse)
+def get_recommendations(csr_need_id: int, db: Session = Depends(get_db)):
+    from app.services.recommendation_service import get_recommendations_for_csr_need
+    result = get_recommendations_for_csr_need(db, csr_need_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="CSR Need not found")
+    return result
+
+
+@router.get("/api/recommendations", response_model=List[Dict[str, Any]])
+def get_all_recommendations(db: Session = Depends(get_db)):
+    from app.models import Recommendation, Match
+    import json
+    
+    recs = db.query(Recommendation).order_by(Recommendation.created_at.desc()).all()
+    if not recs:
+        return []
+        
+    matches = db.query(Match).filter(Match.id.in_([r.match_id for r in recs])).all()
+    match_dict = {m.id: m for m in matches}
+    
+    results = []
+    for r in recs:
+        m = match_dict.get(r.match_id)
+        if not m:
+            continue
+            
+        ngo = m.ngo
+        need = r.csr_need
+        
+        try:
+            expl = json.loads(r.explanation)
+        except:
+            expl = {
+                "summary": "Explanation unavailable.", 
+                "why_match": [], "strengths": [], "considerations": [], "confidence_note": ""
+            }
+            
+        results.append({
+            "id": r.id,
+            "csr_need_id": r.csr_need_id,
+            "csr_need_category": need.ai_identified_category or need.category if need else "Unknown",
+            "csr_need_location": f"{need.city_locality}, {need.district}" if need else "Unknown",
+            "csr_need_status": getattr(need.status, 'name', need.status) if hasattr(need, 'status') else "",
+            "ngo_id": r.ngo_id,
+            "match_id": r.match_id,
+            "ngo_name": ngo.name if ngo else "",
+            "match_score": m.match_score,
+            "explanation": expl
+        })
+    return results
+
+
+
+@router.get("/api/csr-needs/{csr_need_id}/status-history", response_model=List[StatusHistoryResponse])
+def get_status_history(csr_need_id: int, db: Session = Depends(get_db)):
+    need = db.query(CSRNeed).filter(CSRNeed.id == csr_need_id).first()
+    if not need:
+        raise HTTPException(status_code=404, detail="CSR Need not found")
+        
+    history = db.query(StatusHistory).filter(StatusHistory.csr_need_id == csr_need_id).order_by(StatusHistory.timestamp.asc()).all()
+    # Also sort by ID conceptually if timestamps match
+    history.sort(key=lambda x: (x.timestamp, x.id))
+    return history
+
+@router.get("/api/dashboard/summary", response_model=DashboardSummaryResponse)
+def get_dashboard_summary(db: Session = Depends(get_db)):
+    from sqlalchemy import func
+    from app.models import Match, Recommendation
+    
+    total_csr_needs = db.query(CSRNeed).count()
+    high_priority_needs = db.query(CSRNeed).filter(CSRNeed.priority == PriorityEnum.HIGH).count()
+    total_matches = db.query(Match).count()
+    total_recommendations = db.query(Recommendation).count()
+    
+    metrics = {
+        "total_csr_needs": total_csr_needs,
+        "high_priority_needs": high_priority_needs,
+        "total_matches": total_matches,
+        "total_recommendations": total_recommendations
+    }
+    
+    status_distribution = db.query(CSRNeed.status, func.count(CSRNeed.id)).group_by(CSRNeed.status).all()
+    # Initialize defaults
+    status_counts = {
+        "NEED_IDENTIFIED": 0,
+        "AI_ASSESSMENT": 0,
+        "PRIORITIZED": 0,
+        "MATCHED": 0,
+        "RECOMMENDED": 0
+    }
+    for stat, count in status_distribution:
+        if stat and stat.name in status_counts:
+            status_counts[stat.name] = count
+            
+    priority_distribution = db.query(CSRNeed.priority, func.count(CSRNeed.id)).group_by(CSRNeed.priority).all()
+    priority_counts = {
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0
+    }
+    for prio, count in priority_distribution:
+        if prio and prio.name in priority_counts:
+            priority_counts[prio.name] = count
+            
+    recent_db_needs = db.query(CSRNeed).order_by(CSRNeed.id.desc()).limit(5).all()
+    recent_needs = [format_csr_need(n) for n in recent_db_needs]
+    
+    return {
+        "metrics": metrics,
+        "status_counts": status_counts,
+        "priority_counts": priority_counts,
+        "recent_needs": recent_needs
+    }

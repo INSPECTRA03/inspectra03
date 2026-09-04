@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
 
 export async function fetchCSRNeeds() {
     const response = await fetch(`${API_BASE}/api/csr-needs`);
@@ -94,3 +94,83 @@ export async function fetchLocations() {
     if (!response.ok) throw new Error('Failed to fetch Locations');
     return await response.json();
 }
+
+export async function generateMatches(csrNeedId) {
+    const response = await fetch(`${API_BASE}/api/csr-needs/${csrNeedId}/matches`, {
+        method: 'POST'
+    });
+    if (!response.ok) throw new Error('Failed to generate matches');
+    return await response.json();
+}
+
+export async function getMatches(csrNeedId) {
+    const response = await fetch(`${API_BASE}/api/csr-needs/${csrNeedId}/matches`);
+    if (!response.ok) {
+        if (response.status === 404) return { matches: [] };
+        throw new Error('Failed to fetch matches');
+    }
+    return await response.json();
+}
+
+export async function generateRecommendations(csrNeedId) {
+    const response = await fetch(`${API_BASE}/api/csr-needs/${csrNeedId}/recommendations`, {
+        method: 'POST'
+    });
+    if (!response.ok) throw new Error('Failed to generate explanations');
+    return await response.json();
+}
+
+export async function getRecommendations(csrNeedId) {
+    const response = await fetch(`${API_BASE}/api/csr-needs/${csrNeedId}/recommendations`);
+    if (!response.ok) {
+        if (response.status === 404) return { recommendations: [] };
+        throw new Error('Failed to fetch recommendations');
+    }
+    return await response.json();
+}
+
+export async function getStatusHistory(csrNeedId) {
+    const response = await fetch(`${API_BASE}/api/csr-needs/${csrNeedId}/status-history`);
+    if (!response.ok) {
+        if (response.status === 404) return [];
+        throw new Error('Failed to fetch status history');
+    }
+    return await response.json();
+}
+
+export async function getDashboardSummary() {
+    const response = await fetch(`${API_BASE}/api/dashboard/summary`);
+    if (!response.ok) throw new Error('Failed to fetch dashboard summary');
+    return await response.json();
+}
+export async function getGlobalRecommendations() {
+    const response = await fetch(`${API_BASE}/api/recommendations`);
+    if (!response.ok) throw new Error("Failed to fetch recommendations");
+    return await response.json();
+}
+
+
+export const fetchNGODocuments = async (ngoId) => {
+    const res = await fetch(`${API_BASE_URL}/api/ngos/${ngoId}/documents`);
+    if (!res.ok) throw new Error('Failed to fetch NGO documents');
+    return res.json();
+};
+
+export const uploadNGODocument = async (ngoId, documentType, file) => {
+    const formData = new FormData();
+    formData.append('document_type', documentType);
+    formData.append('file', file);
+    
+    const res = await fetch(`${API_BASE_URL}/api/ngos/${ngoId}/documents`, {
+        method: 'POST',
+        body: formData,
+    });
+    
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Failed to upload document');
+    }
+    return res.json();
+};
+
+export const downloadDocumentUrl = (docId) => `${API_BASE_URL}/api/documents/download/${docId}`;

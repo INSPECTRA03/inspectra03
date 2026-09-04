@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchCSRNeeds } from '../services/api';
+import { PageHeader, LoadingState, ErrorState, StatusBadge, EmptyState } from '../components/UI';
+import { Plus, FileText } from 'lucide-react';
 
 const CSRNeeds = () => {
     const [needs, setNeeds] = useState([]);
@@ -21,59 +23,73 @@ const CSRNeeds = () => {
         loadNeeds();
     }, []);
 
+    if (loading) return <LoadingState />;
+    if (error) return <ErrorState message={error} />;
+
     return (
-        <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <h1 className="page-title" style={{ marginBottom: 0 }}>CSR Needs</h1>
-                <Link to="/csr-needs/create" className="btn-primary">
-                    Create CSR Need
-                </Link>
-            </div>
+        <div className="animate-fade-in-up">
+            <PageHeader 
+                title="CSR Needs" 
+                subtitle="Manage identified CSR requirements."
+                action={
+                    <Link to="/csr-needs/create" className="btn btn-primary">
+                        <Plus size={16} /> Create CSR Need
+                    </Link>
+                }
+            />
 
-            {loading && <div>Loading CSR Needs...</div>}
-            {error && <div className="error-message">Error: {error}</div>}
-
-            {!loading && !error && needs.length === 0 && (
-                <div className="placeholder-page">No CSR Needs found. Create one.</div>
-            )}
-
-            {!loading && !error && needs.length > 0 && (
-                <table className="data-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Category</th>
-                            <th>Location</th>
-                            <th>Beneficiaries</th>
-                            <th>Urgency</th>
-                            <th>Priority</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {needs.map(need => (
-                            <tr key={need.id}>
-                                <td>#{need.id}</td>
-                                <td>{need.category}</td>
-                                <td>{need.location.city}, {need.location.state}</td>
-                                <td>{need.beneficiary_count}</td>
-                                <td><span className={`badge badge-${need.urgency.toLowerCase()}`}>{need.urgency}</span></td>
-                                <td>
-                                    {need.priority ? (
-                                        <span className={`badge badge-${need.priority.toLowerCase()}`}>{need.priority}</span>
-                                    ) : (
-                                        <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Pending Assessment</span>
-                                    )}
-                                </td>
-                                <td><span className="badge badge-status">{need.status.replace(/_/g, ' ')}</span></td>
-                                <td>
-                                    <Link to={`/csr-needs/${need.id}`} className="link-action">View</Link>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+            {needs.length === 0 ? (
+                <EmptyState 
+                    title="No CSR needs yet" 
+                    message="Create your first CSR need to get started." 
+                    icon={FileText}
+                    action={
+                        <Link to="/csr-needs/create" className="btn btn-primary">
+                            Create CSR Need
+                        </Link>
+                    }
+                />
+            ) : (
+                <div className="card">
+                    <div className="table-container">
+                        <table className="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Category</th>
+                                    <th>Location</th>
+                                    <th>Beneficiaries</th>
+                                    <th>Urgency</th>
+                                    <th>Priority</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {needs.map(need => (
+                                    <tr key={need.id}>
+                                        <td className="text-muted">#{need.id}</td>
+                                        <td style={{fontWeight: 500}}>{need.category}</td>
+                                        <td>{need.location?.city || need.city_locality}, {need.location?.state || need.state}</td>
+                                        <td className="text-muted">{need.beneficiary_count}</td>
+                                        <td><StatusBadge status={need.urgency} type="priority" /></td>
+                                        <td>
+                                            {need.priority ? (
+                                                <StatusBadge status={need.priority} type="priority" />
+                                            ) : (
+                                                <span className="text-muted">Pending</span>
+                                            )}
+                                        </td>
+                                        <td><StatusBadge status={need.status.replace(/_/g, ' ')} /></td>
+                                        <td>
+                                            <Link to={`/csr-needs/${need.id}`} style={{color: 'var(--accent)', textDecoration: 'none', fontWeight: 500}}>View Details</Link>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             )}
         </div>
     );

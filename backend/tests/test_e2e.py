@@ -26,18 +26,30 @@ def setup_dependencies():
 
 client = TestClient(app)
 
-class MockGeminiModel_E2E:
-    def __init__(self, response_text):
-        self.response_text = response_text
-    def generate_content(self, prompt, generation_config=None):
-        class MockGeminiResponse:
-            text = self.response_text
-        return MockGeminiResponse()
+class MockOpenAIResponse:
+    def __init__(self, text):
+        self.message = type('obj', (object,), {'content': text})
+        self.choices = [type('obj', (object,), {'message': self.message})]
+
+class MockOpenAIClient:
+    def __init__(self, mock_return_text):
+        self.mock_return_text = mock_return_text
+        self.chat = type('obj', (object,), {'completions': type('obj', (object,), {'create': self.create})})()
+        
+    def create(self, **kwargs):
+        if self.mock_return_text == "API_ERROR":
+            raise Exception("Mocked API Error")
+        return MockOpenAIResponse(self.mock_return_text)
+
+def mock_get_client_factory(text):
+    return lambda: MockOpenAIClient(text)
+
+
 
 def test_full_end_to_end_flow(monkeypatch):
-    import google.generativeai as genai
+    import app.services.gemini_service as gemini_service
     valid_json = '{"summary": "Summary", "identified_category": "Education", "beneficiary_group": "Kids", "required_intervention": "Intervention", "key_need": "Need", "analysis": "Analysis"}'
-    monkeypatch.setattr(genai, "GenerativeModel", lambda *a, **k: MockGeminiModel_E2E(valid_json))
+    monkeypatch.setattr(gemini_service, "get_client", mock_get_client_factory(valid_json))
 
     # Seed NGOs and Projects
     db = TestingSessionLocal()
