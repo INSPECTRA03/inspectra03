@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
+import { PageHeader, Card, CardHeader, CardBody, Badge, Button, LoadingState, ErrorState, Skeleton, SkeletonCard, StatusBadge, EmptyState } from '../components/UI';
+
 import { Link, useNavigate } from 'react-router-dom';
-import { Button } from '../components/UI';
 import { ShieldCheck } from 'lucide-react';
 import { setRole } from '../services/auth';
 
 const SignIn = () => {
     const navigate = useNavigate();
+    const [error, setError] = useState(null);
+
     const [role, setSelectedRole] = useState('CORPORATE_ADMIN');
 
     const handleSubmit = (e) => {
@@ -15,19 +18,15 @@ const SignIn = () => {
     };
 
     return (
-        <div style={{minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--background)'}}>
-            <div className="card" style={{width: '100%', maxWidth: '400px', padding: '2rem'}}>
-                <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '2rem'}}>
-                    <Link to="/" style={{display: 'flex', alignItems: 'center', gap: '0.75rem', textDecoration: 'none', marginBottom: '1.5rem'}}>
-                        <div style={{background: 'var(--accent)', color: '#fff', padding: '0.5rem', borderRadius: 'var(--radius-md)'}}>
-                            <ShieldCheck size={24} />
-                        </div>
-                        <span style={{fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.5px'}}>Inspectra</span>
-                    </Link>
-                    <h2 style={{margin: 0, color: 'var(--text-primary)'}}>Sign In</h2>
-                    <p style={{margin: '0.5rem 0 0 0', color: 'var(--text-secondary)', fontSize: '0.875rem'}}>Select your role to access the platform</p>
+        <div style={{minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--background)'}}>
+            <div className="card animate-fade-in-up" style={{width: '90%', maxWidth: '400px', padding: '2.5rem 2rem'}}>
+                <div style={{textAlign: 'center', marginBottom: '2rem'}}>
+                    <div style={{display: 'inline-flex', background: 'var(--primary)', color: '#fff', padding: '0.75rem', borderRadius: 'var(--radius-lg)', marginBottom: '1rem'}}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    </div>
+                    <h1 style={{fontSize: '1.5rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)'}}>Sign in to Inspectra</h1>
                 </div>
-
+                {error && <div className="alert alert-error" style={{marginBottom: '1.5rem'}}>{error}</div>}
                 <form onSubmit={handleSubmit} style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
                     <div>
                         <label style={{display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.25rem', color: 'var(--text-primary)'}}>Demo Role</label>
@@ -49,7 +48,7 @@ const SignIn = () => {
                         <label style={{display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.25rem', color: 'var(--text-primary)'}}>Password (Mock)</label>
                         <input type="password" placeholder="********" style={{width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', outline: 'none', backgroundColor: 'var(--background)'}} />
                     </div>
-                    <Button type="submit" style={{width: '100%', marginTop: '0.5rem'}}>Sign In</Button>
+                    <button type="submit" className="btn btn-primary" style={{width: '100%', marginTop: '0.5rem'}}>Sign In</button>
                 </form>
 
                 <div style={{marginTop: '2rem', textAlign: 'center', fontSize: '0.875rem', color: 'var(--text-secondary)'}}>

@@ -1,5 +1,7 @@
 import React from 'react';
-import { PageHeader } from '../components/UI';
+import { PageHeader, Card, CardHeader, CardBody, Badge, Button, LoadingState, ErrorState, Skeleton, SkeletonCard, StatusBadge, EmptyState } from '../components/UI';
+
+
 
 const PrivacyPolicy = () => {
     return (

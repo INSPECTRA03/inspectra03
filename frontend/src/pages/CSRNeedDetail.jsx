@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { PageHeader, Card, CardHeader, CardBody, Badge, Button, LoadingState, ErrorState, Skeleton, SkeletonCard, StatusBadge, EmptyState } from '../components/UI';
+
 import { useParams, Link } from 'react-router-dom';
 import { fetchCSRNeed, analyzeCSRNeed, assessCSRNeedPriority, generateMatches, getMatches, generateRecommendations, getRecommendations, getStatusHistory } from '../services/api';
-import { PageHeader, StatusBadge, Button, LoadingState, ErrorState } from '../components/UI';
+
 import { Sparkles, Calculator } from 'lucide-react';
 
 const CSRNeedDetail = () => {
@@ -118,343 +120,200 @@ const CSRNeedDetail = () => {
     if (!need) return <ErrorState message="CSR Need not found" />;
 
     const loc = need.location || { state: need.state, district: need.district, city: need.city_locality };
+    
+    const renderTimeline = () => {
+        const statuses = ['NEED_IDENTIFIED', 'AI_ASSESSMENT', 'PRIORITIZED', 'MATCHED', 'RECOMMENDED'];
+        const currentIndex = statuses.indexOf(need.status);
+        
+        return (
+            <Card className="animate-fade-in-up mb-4">
+                <CardHeader><h3 className="card-title">Status Tracking</h3></CardHeader>
+                <CardBody>
+                    <div className="timeline-container">
+                        <div className="timeline-track"></div>
+                        <div className="timeline-progress" style={{ width: `${Math.max(0, (currentIndex / (statuses.length - 1)) * 100)}%` }}></div>
+                        {statuses.map((s, idx) => {
+                            const isCompleted = idx < currentIndex;
+                            const isActive = idx === currentIndex;
+                            return (
+                                <div key={s} className={`timeline-step ${isCompleted ? 'completed' : ''} ${isActive ? 'active' : ''}`}>
+                                    <div className="timeline-dot"></div>
+                                    <div className="timeline-label">{s.replace(/_/g, ' ')}</div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </CardBody>
+            </Card>
+        );
+    };
+
+    const getScoreVariant = (score) => {
+        if(score >= 80) return 'success';
+        if(score >= 50) return 'warning';
+        return 'neutral';
+    };
 
     return (
-        <div style={{maxWidth: '900px'}}>
+        <div className="page-container animate-fade-in-up">
             <PageHeader 
-                title={`CSR Need #${need.id}`}
-                subtitle="Detailed view of the community requirement."
-                action={<StatusBadge status={need.status.replace(/_/g, ' ')} />}
+                title={`CSR Requirement #${need.id}`} 
+                subtitle={`${loc.city || '-'}, ${loc.district || '-'} � Created ${new Date(need.created_at).toLocaleDateString()}`}
+                action={<Badge variant={need.status === 'RECOMMENDED' ? 'success' : 'info'} className="text-sm px-3 py-1">{need.status.replace(/_/g, ' ')}</Badge>}
             />
 
-            <div className="card mb-4 animate-fade-in-up">
-                <div className="card-header"><h3 className="card-title" style={{margin: 0}}>CSR Need Overview</h3></div>
-                <div className="card-body">
-                    <div className="form-grid mb-4">
-                        <div><span className="text-muted" style={{display: 'block', fontSize: '0.875rem'}}>Category</span><strong>{need.category}</strong></div>
-                        <div><span className="text-muted" style={{display: 'block', fontSize: '0.875rem'}}>Location</span><strong>{loc.city}, {loc.state}</strong></div>
-                        <div><span className="text-muted" style={{display: 'block', fontSize: '0.875rem'}}>Beneficiaries</span><strong>{need.beneficiary_count} ({need.beneficiary_type})</strong></div>
-                        <div><span className="text-muted" style={{display: 'block', fontSize: '0.875rem'}}>Urgency</span><StatusBadge status={need.urgency} type="priority" /></div>
-                        <div>
-                            <span className="text-muted" style={{display: 'block', fontSize: '0.875rem'}}>Priority</span>
-                            {need.priority ? <StatusBadge status={need.priority} type="priority" /> : <span className="text-muted">Pending</span>}
-                        </div>
-                    </div>
-                    <div>
-                        <span className="text-muted" style={{display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem'}}>Need Description</span>
-                        <p style={{whiteSpace: 'pre-wrap', margin: 0}}>{need.description}</p>
-                    </div>
-                </div>
-            </div>
+            {renderTimeline()}
 
-            <div className="card mb-4 animate-fade-in-up">
-                <div className="card-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                    <h3 className="card-title" style={{margin: 0}}>AI CSR Analysis</h3>
-                    {!need.ai_analysis && (
-                        <Button onClick={handleAnalyze} disabled={isAnalyzing}>
-                            <Sparkles size={16} /> {isAnalyzing ? 'Analyzing CSR need...' : 'Analyze with AI'}
-                        </Button>
-                    )}
-                </div>
-                {need.ai_analysis ? (
-                    <div className="card-body animate-fade-in">
-                        <div className="form-grid mb-4">
-                            <div><span className="text-muted" style={{display: 'block', fontSize: '0.875rem'}}>Identified Category</span><strong>{need.ai_analysis.identified_category || 'N/A'}</strong></div>
-                            <div><span className="text-muted" style={{display: 'block', fontSize: '0.875rem'}}>Beneficiary Group</span><strong>{need.ai_analysis.beneficiary_group || 'N/A'}</strong></div>
-                            <div><span className="text-muted" style={{display: 'block', fontSize: '0.875rem'}}>Required Intervention</span><strong>{need.ai_analysis.required_intervention || 'N/A'}</strong></div>
-                            <div><span className="text-muted" style={{display: 'block', fontSize: '0.875rem'}}>Key Need</span><strong>{need.ai_analysis.key_need || 'N/A'}</strong></div>
-                        </div>
-                        <div className="mb-4">
-                            <span className="text-muted" style={{display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem'}}>Summary</span>
-                            <p style={{margin: 0}}>{need.ai_analysis.summary || 'N/A'}</p>
-                        </div>
-                        <div>
-                            <span className="text-muted" style={{display: 'block', fontSize: '0.875rem', marginBottom: '0.5rem'}}>Full Analysis</span>
-                            <div style={{padding: '1rem', background: 'var(--background)', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', whiteSpace: 'pre-wrap'}}>
-                                {need.ai_analysis.analysis || ''}
-                            </div>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="card-body text-center" style={{padding: '3rem 1rem', color: 'var(--text-secondary)'}}>
-                        {isAnalyzing ? 'Running AI analysis...' : 'No AI analysis generated yet.'}
-                    </div>
-                )}
-            </div>
-
-            <div className="card mb-4 animate-fade-in-up">
-                <div className="card-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                    <h3 className="card-title" style={{margin: 0}}>Priority Assessment</h3>
-                    {need.ai_analysis && !need.priority && (
-                        <Button onClick={handleAssessPriority} disabled={isAssessing} variant="secondary">
-                            <Calculator size={16} /> {isAssessing ? 'Assessing...' : 'Assess Priority'}
-                        </Button>
-                    )}
-                </div>
-                {need.priority ? (
-                    <div className="card-body animate-fade-in">
-                        <div className="form-grid">
-                            <div>
-                                <span className="text-muted" style={{display: 'block', fontSize: '0.875rem'}}>Priority</span>
-                                <StatusBadge status={need.priority} type="priority" />
-                            </div>
-                            <div>
-                                <span className="text-muted" style={{display: 'block', fontSize: '0.875rem'}}>Score</span>
-                                <strong>{need.priority_score} / 100</strong>
-                            </div>
-                            <div style={{gridColumn: '1 / -1'}}>
-                                <span className="text-muted" style={{display: 'block', fontSize: '0.875rem'}}>Reason</span>
-                                <p style={{margin: 0}}>{need.priority_reason}</p>
-                            </div>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="card-body text-center" style={{padding: '3rem 1rem', color: 'var(--text-secondary)'}}>
-                        {!need.ai_analysis ? 'Complete AI analysis first to unlock priority assessment.' : 'Ready for priority assessment.'}
-                    </div>
-                )}
-            </div>
-
-            {/* NGO Matches Section */}
-            <div className="card mb-4 animate-fade-in-up">
-                <div className="card-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                    <h3 className="card-title" style={{margin: 0}}>Recommended NGO Matches</h3>
-                    {need.priority && (
-                        <Button onClick={handleGenerateMatches} disabled={isMatching}>
-                            {isMatching ? 'Generating Matches...' : (matches.length > 0 ? 'Regenerate Matches' : 'Generate Matches')}
-                        </Button>
-                    )}
-                </div>
-                
-                <div className="card-body" style={{padding: 0}}>
-                    {isMatching ? (
-                        <div className="text-center" style={{padding: '3rem 1rem'}}>
-                            <div className="loading-spinner"></div>
-                            <p style={{marginTop: '1rem', color: 'var(--text-secondary)'}}>Running matching engine...</p>
-                        </div>
-                    ) : matches.length > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1.5rem' }}>
-                            {matches.map((match) => {
-                                // Extract correct fields from backend MatchResponse
-                                const sScore = match.sector_score ?? match.sector_match ?? 0;
-                                const lScore = match.location_score ?? match.location_match ?? 0;
-                                const bScore = match.beneficiary_score ?? match.beneficiary_match ?? 0;
-                                const eScore = match.experience_score ?? match.experience_match ?? 0;
-
-                                return (
-                                    <div key={match.ngo_id} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '1.5rem', backgroundColor: 'var(--surface)' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--border)', paddingBottom: '1rem', marginBottom: '1rem' }}>
-                                            <div>
-                                                <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', color: 'var(--accent)' }}>
-                                                    {match.ngo_name}
-                                                </h4>
-                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                    <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--primary)' }}>
-                                                        {match.match_score.toFixed(1)}% <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-secondary)' }}>Overall Match Score</span>
-                                                    </div>
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                                                        Based on: Sector 35% &middot; Location 30% &middot; Beneficiary 20% &middot; Experience 15%
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <Link to={`/ngos/${match.ngo_id}`} className="btn btn-secondary" style={{ fontSize: '0.875rem' }}>
-                                                View NGO
-                                            </Link>
-                                        </div>
-
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                            <h5 style={{ margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--primary)', fontSize: '0.875rem' }}>Matching Breakdown</h5>
-                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Total Weight: 100%</div>
-                                        </div>
-
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
-                                            {/* Sector Match */}
-                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                                                    <strong style={{ fontSize: '0.875rem', color: 'var(--text-primary)' }}>Sector Match</strong>
-                                                </div>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-                                                    <span>35% weight</span>
-                                                    <span>{sScore.toFixed(0)}% score</span>
-                                                </div>
-                                                <div style={{ height: '8px', backgroundColor: 'var(--background)', borderRadius: '9999px', overflow: 'hidden' }}>
-                                                    <div className="animate-progress" style={{ height: '100%', width: `${sScore}%`, backgroundColor: 'var(--accent)' }}></div>
-                                                </div>
-                                            </div>
-
-                                            {/* Location Match */}
-                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                                                    <strong style={{ fontSize: '0.875rem', color: 'var(--text-primary)' }}>Location Match</strong>
-                                                </div>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-                                                    <span>30% weight</span>
-                                                    <span>{lScore.toFixed(0)}% score</span>
-                                                </div>
-                                                <div style={{ height: '8px', backgroundColor: 'var(--background)', borderRadius: '9999px', overflow: 'hidden' }}>
-                                                    <div className="animate-progress" style={{ height: '100%', width: `${lScore}%`, backgroundColor: 'var(--accent)' }}></div>
-                                                </div>
-                                            </div>
-
-                                            {/* Beneficiary Match */}
-                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                                                    <strong style={{ fontSize: '0.875rem', color: 'var(--text-primary)' }}>Beneficiary Match</strong>
-                                                </div>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-                                                    <span>20% weight</span>
-                                                    <span>{bScore.toFixed(0)}% score</span>
-                                                </div>
-                                                <div style={{ height: '8px', backgroundColor: 'var(--background)', borderRadius: '9999px', overflow: 'hidden' }}>
-                                                    <div className="animate-progress" style={{ height: '100%', width: `${bScore}%`, backgroundColor: 'var(--accent)' }}></div>
-                                                </div>
-                                            </div>
-
-                                            {/* Experience Match */}
-                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                                                    <strong style={{ fontSize: '0.875rem', color: 'var(--text-primary)' }}>Experience Match</strong>
-                                                </div>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-                                                    <span>15% weight</span>
-                                                    <span>{eScore.toFixed(0)}% score</span>
-                                                </div>
-                                                <div style={{ height: '8px', backgroundColor: 'var(--background)', borderRadius: '9999px', overflow: 'hidden' }}>
-                                                    <div className="animate-progress" style={{ height: '100%', width: `${eScore}%`, backgroundColor: 'var(--accent)' }}></div>
-                                                </div>
-                                            </div>
-                                        </div>
+             <div className="grid-2">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                    <Card>
+                        <CardHeader><h3 className="card-title">CSR Need Overview</h3></CardHeader>
+                        <CardBody>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                <div>
+                                    <span className="text-muted text-sm font-semibold mb-1" style={{ display: 'block', textTransform: 'uppercase' }}>Description</span>
+                                    <p>{need.description}</p>
+                                </div>
+                                <div className="grid-2 mt-2">
+                                    <div>
+                                        <span className="text-muted text-sm font-semibold mb-1" style={{ display: 'block', textTransform: 'uppercase' }}>Category</span>
+                                        <div className="font-medium">{need.category}</div>
                                     </div>
-                                );
-                            })}
-                        </div>
-                    ) : (
-                        <div className="text-center" style={{padding: '3rem 1rem', color: 'var(--text-secondary)'}}>
-                            {!need.priority ? 'Complete priority assessment first.' : 'No NGO matches found. Click "Generate Matches" to find partners.'}
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Explainable Recommendations Section */}
-            <div className="card mb-4 animate-fade-in-up">
-                <div className="card-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                    <h3 className="card-title" style={{margin: 0}}>Explainable Recommendations</h3>
-                    {matches.length > 0 && (
-                        <Button onClick={handleGenerateExplanations} disabled={isExplaining}>
-                            {isExplaining ? 'Generating Explanations...' : (recommendations.length > 0 ? 'Regenerate Explanations' : 'Generate Explanations')}
-                        </Button>
-                    )}
-                </div>
-                
-                <div className="card-body">
-                    {isExplaining ? (
-                        <div className="text-center" style={{padding: '2rem', color: 'var(--text-secondary)'}}>
-                            <p>Analyzing NGO matches and extracting factual evidence...</p>
-                            <div className="loading-spinner" style={{marginTop: '1rem'}}></div>
-                        </div>
-                    ) : recommendations.length > 0 ? (
-                        <div style={{display: 'flex', flexDirection: 'column', gap: '1.5rem'}}>
-                            {recommendations.map((rec, idx) => (
-                                <div key={idx} style={{border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '1.5rem', backgroundColor: 'var(--background)'}}>
-                                    <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '1rem'}}>
-                                        <h4 style={{margin: 0, color: 'var(--accent)'}}>{rec.ngo_name}</h4>
-                                        <div style={{fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-                                            Match Score: 
-                                            <StatusBadge status={rec.match_score >= 80 ? 'HIGH' : rec.match_score >= 50 ? 'MEDIUM' : 'LOW'} type="priority" />
-                                            {rec.match_score}%
-                                        </div>
+                                    <div>
+                                        <span className="text-muted text-sm font-semibold mb-1" style={{ display: 'block', textTransform: 'uppercase' }}>Urgency</span>
+                                        <Badge variant={need.urgency === 'HIGH' ? 'danger' : need.urgency === 'MEDIUM' ? 'warning' : 'success'}>{need.urgency}</Badge>
                                     </div>
-                                    
-                                    <p style={{fontWeight: 500, marginBottom: '1rem'}}>{rec.explanation.summary}</p>
-                                    
-                                    <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '1rem'}}>
-                                        <div>
-                                            <strong style={{color: 'var(--text-secondary)'}}>Why this NGO?</strong>
-                                            <ul style={{marginTop: '0.5rem', paddingLeft: '1.25rem'}}>
-                                                {rec.explanation.why_match && rec.explanation.why_match.map((item, i) => <li key={i}>{item}</li>)}
-                                            </ul>
-                                        </div>
-                                        <div>
-                                            <strong style={{color: 'var(--text-secondary)'}}>Strengths</strong>
-                                            <ul style={{marginTop: '0.5rem', paddingLeft: '1.25rem', color: 'var(--success)'}}>
-                                                {rec.explanation.strengths && rec.explanation.strengths.map((item, i) => <li key={i}>{item}</li>)}
-                                            </ul>
-                                        </div>
-                                        <div>
-                                            <strong style={{color: 'var(--text-secondary)'}}>Considerations</strong>
-                                            <ul style={{marginTop: '0.5rem', paddingLeft: '1.25rem', color: 'var(--warning)'}}>
-                                                {rec.explanation.considerations && rec.explanation.considerations.map((item, i) => <li key={i}>{item}</li>)}
-                                            </ul>
-                                        </div>
+                                    <div>
+                                        <span className="text-muted text-sm font-semibold mb-1" style={{ display: 'block', textTransform: 'uppercase' }}>Beneficiaries</span>
+                                        <div className="font-medium">{need.beneficiary_type} ({need.beneficiary_count})</div>
                                     </div>
-                                    
-                                    <div style={{fontSize: '0.85rem', color: 'var(--text-secondary)', borderTop: '1px solid var(--border)', paddingTop: '1rem', fontStyle: 'italic'}}>
-                                        {rec.explanation.confidence_note}
+                                    <div>
+                                        <span className="text-muted text-sm font-semibold mb-1" style={{ display: 'block', textTransform: 'uppercase' }}>Location</span>
+                                        <div className="font-medium">{loc.state}</div>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center" style={{padding: '3rem 1rem', color: 'var(--text-secondary)'}}>
-                            {!matches.length ? 'Generate NGO Matches first to unlock Explainable Recommendations.' : 'No explanations generated yet. Click "Generate Explanations" to run the intelligent AI explainer against these matches.'}
-                        </div>
-                    )}
-                </div>
-            </div>
+                            </div>
+                        </CardBody>
+                    </Card>
 
-            {/* Status History Timeline Section */}
-            <div className="card mb-4 animate-fade-in-up">
-                <div className="card-header">
-                    <h3 className="card-title" style={{margin: 0}}>CSR Status Timeline</h3>
+                    <Card>
+                        <CardHeader style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.29 7 12 12 20.71 7"></polyline><line x1="12" y1="22" x2="12" y2="12"></line></svg>
+                                AI Analysis
+                            </h3>
+                            {!need.ai_analysis && <Button variant="secondary" onClick={handleAssess} disabled={assessing}>{assessing ? 'Analyzing...' : 'Run AI Analysis'}</Button>}
+                        </CardHeader>
+                        <CardBody>
+                            {need.ai_analysis ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    <div style={{ background: 'var(--primary-bg)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                                        <span className="text-sm font-semibold mb-1" style={{ display: 'block', color: 'var(--primary)' }}>Summary</span>
+                                        <div style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{need.ai_analysis.summary}</div>
+                                    </div>
+                                    <div className="grid-2 pt-2">
+                                        <div><span className="text-muted text-sm" style={{display:'block'}}>Key Need</span><div className="font-medium">{need.ai_analysis.key_need}</div></div>
+                                        <div><span className="text-muted text-sm" style={{display:'block'}}>Intervention</span><div className="font-medium">{need.ai_analysis.required_intervention}</div></div>
+                                        <div><span className="text-muted text-sm" style={{display:'block'}}>Identified Category</span><div className="font-medium">{need.ai_analysis.identified_category}</div></div>
+                                        <div><span className="text-muted text-sm" style={{display:'block'}}>Beneficiary Group</span><div className="font-medium">{need.ai_analysis.beneficiary_group}</div></div>
+                                    </div>
+                                    <div className="mt-2 text-muted text-sm">{need.ai_analysis.analysis}</div>
+                                </div>
+                            ) : (
+                                <div className="text-center text-muted" style={{ padding: '2rem 1rem' }}>
+                                    AI Assessment has not been run yet. Run the Analysis to extract structured data from this requirement.
+                                </div>
+                            )}
+                        </CardBody>
+                    </Card>
                 </div>
-                <div className="card-body">
-                    {statusHistory.length > 0 ? (
-                        <div style={{display: 'flex', flexDirection: 'column', gap: '1rem', position: 'relative', paddingLeft: '1.5rem', borderLeft: '2px solid var(--border)', marginLeft: '1rem', marginTop: '1rem', marginBottom: '1rem'}}>
-                            {statusHistory.map((hist, idx) => (
-                                <div key={idx} className="animate-fade-in-up" style={{position: 'relative', animationDelay: `${idx * 0.15}s`}}>
-                                    <div style={{
-                                        position: 'absolute', 
-                                        left: '-1.85rem', 
-                                        top: '0.2rem',
-                                        width: '12px', 
-                                        height: '12px', 
-                                        borderRadius: '50%', 
-                                        backgroundColor: idx === statusHistory.length - 1 ? 'var(--accent)' : 'var(--text-secondary)',
-                                        border: '2px solid var(--surface)'
-                                    }}></div>
-                                    <div style={{fontWeight: 'bold', color: idx === statusHistory.length - 1 ? 'var(--text-primary)' : 'var(--text-secondary)'}}>
-                                        {hist.status.replace(/_/g, ' ')}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                    <Card>
+                        <CardHeader style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 className="card-title">Priority Assessment</h3>
+                            {!need.priority && <Button variant="secondary" onClick={handlePrioritize} disabled={prioritizing || !need.ai_analysis}>{prioritizing ? 'Prioritizing...' : 'Calculate Priority'}</Button>}
+                        </CardHeader>
+                        <CardBody>
+                            {need.priority ? (
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1.25rem' }}>
+                                    <div style={{ padding: '1rem', background: need.priority === 'HIGH' ? 'var(--danger-bg)' : need.priority === 'MEDIUM' ? 'var(--warning-bg)' : 'var(--success-bg)', borderRadius: 'var(--radius-md)', border: `1px solid ${need.priority === 'HIGH' ? 'var(--danger)' : need.priority === 'MEDIUM' ? '#d97706' : 'var(--success)'}`, minWidth: '100px', textAlign: 'center' }}>
+                                        <div style={{ fontSize: '2rem', fontWeight: 700, color: need.priority === 'HIGH' ? 'var(--danger)' : need.priority === 'MEDIUM' ? '#d97706' : 'var(--success)' }}>{need.priority_score || 0}</div>
+                                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>SCORE</div>
                                     </div>
-                                    <div style={{fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.2rem'}}>
-                                        {new Date(hist.timestamp).toLocaleString(undefined, {
-                                            year: 'numeric',
-                                            month: 'short',
-                                            day: 'numeric',
-                                            hour: '2-digit',
-                                            minute: '2-digit'
-                                        })}
-                                    </div>
-                                    <div style={{fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.3rem'}}>
-                                        {hist.status === 'NEED_IDENTIFIED' && 'CSR need created'}
-                                        {hist.status === 'AI_ASSESSMENT' && 'AI need analysis completed'}
-                                        {hist.status === 'PRIORITIZED' && 'Priority assessment completed'}
-                                        {hist.status === 'MATCHED' && 'NGO matches generated'}
-                                        {hist.status === 'RECOMMENDED' && 'Recommendation explanations generated'}
+                                    <div>
+                                        <Badge variant={need.priority === 'HIGH' ? 'danger' : need.priority === 'MEDIUM' ? 'warning' : 'success'} style={{ marginBottom: '0.5rem' }}>{need.priority} PRIORITY</Badge>
+                                        <div className="text-sm text-muted">{need.priority_reason}</div>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center" style={{padding: '2rem 1rem', color: 'var(--text-secondary)'}}>
-                            No status history available.
-                        </div>
-                    )}
+                            ) : (
+                                <div className="text-center text-muted" style={{ padding: '2rem 1rem' }}>
+                                    Priority has not been assigned. Run AI Analysis first, then determine priority.
+                                </div>
+                            )}
+                        </CardBody>
+                    </Card>
+
+                    <Card>
+                        <CardHeader style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 className="card-title">Top NGO Matches</h3>
+                            {(!matches || matches.length === 0) && (
+                                <Button variant="primary" onClick={handleMatch} disabled={matching || !need.priority}>{matching ? 'Finding Partners...' : 'Find Matches'}</Button>
+                            )}
+                        </CardHeader>
+                        <CardBody>
+                            {matches && matches.length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    {matches.slice(0,3).map((match, idx) => (
+                                        <div key={match.id || match.ngo_id} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '1rem' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <span style={{ fontSize: '1.2rem' }}>{idx === 0 ? '1️⃣' : idx === 1 ? '2️⃣' : '3️⃣'}</span>
+                                                    <span style={{ fontWeight: 600 }}>{match.ngo_name}</span>
+                                                </div>
+                                                <Badge variant={getScoreVariant(match.match_score)}>{Math.round(match.match_score)}% Match</Badge>
+                                            </div>
+                                            
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                                                {[
+                                                    {label: 'Sector (35%)', val: match.sector_score ?? match.sector_match},
+                                                    {label: 'Location (30%)', val: match.location_score ?? match.location_match},
+                                                    {label: 'Beneficiary (20%)', val: match.beneficiary_score ?? match.beneficiary_match},
+                                                    {label: 'Exp (15%)', val: match.experience_score ?? match.experience_match}
+                                                ].map(s => (
+                                                    <div key={s.label}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>
+                                                            <span>{s.label}</span><span>{Math.round(s.val || 0)}/100</span>
+                                                        </div>
+                                                        <div className="score-track" style={{ height: '4px' }}>
+                                                            <div className="score-fill" style={{ width: `${s.val || 0}%`, backgroundColor: s.val > 70 ? 'var(--success)' : s.val > 40 ? '#d97706' : 'var(--text-tertiary)' }}></div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            
+                                            <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                                <Link to={`/ngos/${match.ngo_id}`}><Button variant="secondary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem'}}>View Profile</Button></Link>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {matches.length > 3 && (
+                                        <div className="text-center mt-2">
+                                            <span className="text-muted text-sm">+ {matches.length - 3} other valid matches identified</span>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="text-center text-muted" style={{ padding: '1rem' }}>
+                                    No matches found.
+                                </div>
+                            )}
+                        </CardBody>
+                    </Card>
                 </div>
             </div>
-
         </div>
     );
-};
+}
 
 export default CSRNeedDetail;

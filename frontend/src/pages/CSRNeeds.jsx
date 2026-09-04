@@ -1,96 +1,98 @@
 import React, { useEffect, useState } from 'react';
+import { PageHeader, Card, CardHeader, CardBody, Badge, Button, LoadingState, ErrorState, Skeleton, SkeletonCard, StatusBadge, EmptyState } from '../components/UI';
+
 import { Link } from 'react-router-dom';
 import { fetchCSRNeeds } from '../services/api';
-import { PageHeader, LoadingState, ErrorState, StatusBadge, EmptyState } from '../components/UI';
-import { Plus, FileText } from 'lucide-react';
+import { Plus } from 'lucide-react';
 
 const CSRNeeds = () => {
     const [needs, setNeeds] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    useEffect(() => {
-        async function loadNeeds() {
-            try {
-                const data = await fetchCSRNeeds();
-                setNeeds(data);
-            } catch (err) {
-                setError(err.message);
-            } finally {
-                setLoading(false);
-            }
+    const loadNeeds = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const data = await fetchCSRNeeds();
+            setNeeds(data);
+        } catch (err) {
+            setError(err.message || 'Failed to fetch CSR Needs');
+        } finally {
+            setLoading(false);
         }
-        loadNeeds();
-    }, []);
+    };
 
-    if (loading) return <LoadingState />;
-    if (error) return <ErrorState message={error} />;
+    useEffect(() => { loadNeeds(); }, []);
+
+    if (error) {
+        return (
+            <div className="page-container animate-fade-in-up">
+                <PageHeader title="CSR Needs" subtitle="Create, monitor and manage CSR requirements." />
+                <ErrorState message={error} onRetry={loadNeeds} />
+            </div>
+        );
+    }
 
     return (
-        <div className="animate-fade-in-up">
+        <div className="page-container animate-fade-in-up">
             <PageHeader 
                 title="CSR Needs" 
-                subtitle="Manage identified CSR requirements."
+                subtitle="Create, monitor and manage CSR requirements."
                 action={
-                    <Link to="/csr-needs/create" className="btn btn-primary">
-                        <Plus size={16} /> Create CSR Need
+                    <Link to="/csr-needs/create">
+                        <Button variant="primary"><Plus size={18} /> Create CSR Need</Button>
                     </Link>
                 }
             />
 
-            {needs.length === 0 ? (
-                <EmptyState 
-                    title="No CSR needs yet" 
-                    message="Create your first CSR need to get started." 
-                    icon={FileText}
-                    action={
-                        <Link to="/csr-needs/create" className="btn btn-primary">
-                            Create CSR Need
-                        </Link>
-                    }
-                />
-            ) : (
-                <div className="card">
-                    <div className="table-container">
-                        <table className="data-table">
+            <Card>
+                {loading ? <LoadingState /> : (
+                    <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
+                        <table>
                             <thead>
                                 <tr>
                                     <th>ID</th>
-                                    <th>Category</th>
                                     <th>Location</th>
-                                    <th>Beneficiaries</th>
+                                    <th>Category</th>
                                     <th>Urgency</th>
                                     <th>Priority</th>
                                     <th>Status</th>
-                                    <th>Action</th>
+                                    <th style={{textAlign: 'right'}}>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {needs.map(need => (
                                     <tr key={need.id}>
-                                        <td className="text-muted">#{need.id}</td>
-                                        <td style={{fontWeight: 500}}>{need.category}</td>
-                                        <td>{need.location?.city || need.city_locality}, {need.location?.state || need.state}</td>
-                                        <td className="text-muted">{need.beneficiary_count}</td>
-                                        <td><StatusBadge status={need.urgency} type="priority" /></td>
+                                        <td className="font-medium text-muted">#{need.id}</td>
+                                        <td>{need.district}, {need.state}</td>
+                                        <td>{need.category}</td>
+                                        <td><Badge variant={need.urgency === 'HIGH' ? 'danger' : need.urgency === 'MEDIUM' ? 'warning' : 'success'}>{need.urgency}</Badge></td>
                                         <td>
-                                            {need.priority ? (
-                                                <StatusBadge status={need.priority} type="priority" />
-                                            ) : (
-                                                <span className="text-muted">Pending</span>
-                                            )}
+                                            {!need.priority ? <span className="text-muted text-sm">Pending</span> : 
+                                             <Badge variant={need.priority === 'HIGH' ? 'danger' : need.priority === 'MEDIUM' ? 'warning' : 'success'}>{need.priority}</Badge>}
                                         </td>
-                                        <td><StatusBadge status={need.status.replace(/_/g, ' ')} /></td>
-                                        <td>
-                                            <Link to={`/csr-needs/${need.id}`} style={{color: 'var(--accent)', textDecoration: 'none', fontWeight: 500}}>View Details</Link>
+                                        <td><Badge variant="info">{need.status.replace(/_/g, ' ')}</Badge></td>
+                                        <td style={{textAlign: 'right'}}>
+                                            <Link to={`/csr-needs/${need.id}`}>
+                                                <Button variant="secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem' }}>Manage</Button>
+                                            </Link>
                                         </td>
                                     </tr>
                                 ))}
+                                {needs.length === 0 && (
+                                    <tr>
+                                        <td colSpan="7" style={{ textAlign: 'center', padding: '4rem 2rem', color: 'var(--text-secondary)' }}>
+                                            <div style={{ marginBottom: '1rem' }}>No CSR needs have been created yet.</div>
+                                            <Link to="/csr-needs/create"><Button variant="primary">Create First Need</Button></Link>
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
-                </div>
-            )}
+                )}
+            </Card>
         </div>
     );
 };

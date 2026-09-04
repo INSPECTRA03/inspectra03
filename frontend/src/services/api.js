@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8000';
 
 export async function fetchCSRNeeds() {
     const response = await fetch(`${API_BASE}/api/csr-needs`);
@@ -151,7 +151,7 @@ export async function getGlobalRecommendations() {
 
 
 export const fetchNGODocuments = async (ngoId) => {
-    const res = await fetch(`${API_BASE_URL}/api/ngos/${ngoId}/documents`);
+    const res = await fetch(`${API_BASE}/api/ngos/${ngoId}/documents`);
     if (!res.ok) throw new Error('Failed to fetch NGO documents');
     return res.json();
 };
@@ -161,7 +161,7 @@ export const uploadNGODocument = async (ngoId, documentType, file) => {
     formData.append('document_type', documentType);
     formData.append('file', file);
     
-    const res = await fetch(`${API_BASE_URL}/api/ngos/${ngoId}/documents`, {
+    const res = await fetch(`${API_BASE}/api/ngos/${ngoId}/documents`, {
         method: 'POST',
         body: formData,
     });
@@ -173,4 +173,4 @@ export const uploadNGODocument = async (ngoId, documentType, file) => {
     return res.json();
 };
 
-export const downloadDocumentUrl = (docId) => `${API_BASE_URL}/api/documents/download/${docId}`;
+export const downloadDocumentUrl = (docId) => `${API_BASE}/api/documents/download/${docId}`;

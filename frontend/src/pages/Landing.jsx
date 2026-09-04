@@ -1,58 +1,45 @@
-﻿import React from 'react';
+import React from 'react';
+import { PageHeader, Card, CardHeader, CardBody, Badge, Button, LoadingState, ErrorState, Skeleton, SkeletonCard, StatusBadge, EmptyState } from '../components/UI';
+
 import { Link } from 'react-router-dom';
-import { Button } from '../components/UI';
-import { ShieldCheck, ArrowRight, Building, Globe } from 'lucide-react';
 
 const Landing = () => {
     return (
-        <div style={{minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--background)'}}>
-            <header style={{padding: '1.5rem 3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', borderBottom: '1px solid var(--border)'}}>
-                <div style={{display: 'flex', alignItems: 'center', gap: '0.75rem'}}>
-                    <div style={{background: 'var(--accent)', color: '#fff', padding: '0.5rem', borderRadius: 'var(--radius-md)'}}>
-                        <ShieldCheck size={24} />
+        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--background)' }}>
+            <header style={{ padding: '1.5rem 3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', backgroundColor: 'var(--surface)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 700, fontSize: '1.5rem', letterSpacing: '-0.5px' }}>
+                    <div style={{ background: 'var(--primary)', color: '#fff', padding: '0.4rem', borderRadius: 'var(--radius-md)' }}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
                     </div>
-                    <span style={{fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.5px'}}>Inspectra</span>
+                    Inspectra
                 </div>
-                <div style={{display: 'flex', gap: '1rem'}}>
-                    <Link to="/signin"><Button variant="secondary">Sign In</Button></Link>
-                    <Link to="/signup"><Button variant="primary">Sign Up</Button></Link>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                    <Link to="/signin" className="btn btn-secondary">Sign In</Link>
+                    <Link to="/signup" className="btn btn-primary">Get Started</Link>
                 </div>
             </header>
 
-            <main style={{flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 2rem', textAlign: 'center'}}>
-                <span style={{background: 'var(--surface)', padding: '0.5rem 1rem', borderRadius: '9999px', fontSize: '0.875rem', fontWeight: 600, color: 'var(--accent)', marginBottom: '1.5rem', border: '1px solid var(--border)'}}>
-                    Corporate Social Responsibility Platform
-                </span>
-                <h1 style={{fontSize: '3.5rem', fontWeight: 800, color: 'var(--text-primary)', maxWidth: '800px', lineHeight: 1.1, marginBottom: '1.5rem', letterSpacing: '-1px'}}>
-                    Identify CSR needs. Prioritize impact. Find the right NGO partners.
+            <main style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '4rem 2rem', textAlign: 'center' }}>
+                <div className="badge badge-info mb-4 animate-fade-in-up">Enterprise CSR Management</div>
+                <h1 className="animate-fade-in-up delay-100" style={{ fontSize: '3.5rem', fontWeight: 800, color: 'var(--text-primary)', maxWidth: '800px', lineHeight: 1.1, letterSpacing: '-1px', marginBottom: '1.5rem' }}>
+                    Intelligent CSR Need Assessment & NGO Matching
                 </h1>
-                <p style={{fontSize: '1.25rem', color: 'var(--text-secondary)', maxWidth: '600px', marginBottom: '3rem', lineHeight: 1.6}}>
-                    AI-powered CSR need assessment and deterministic NGO matching. Transform corporate initiatives into measurable social impact instantly.
+                <p className="animate-fade-in-up delay-200 text-muted" style={{ fontSize: '1.25rem', maxWidth: '600px', marginBottom: '2.5rem' }}>
+                    Streamline your corporate social responsibility lifecycle. Use Inspectra's structured matching engine and AI analysis to connect verified requirements with trusted NGO partners.
                 </p>
-                <div style={{display: 'flex', gap: '1rem'}}>
-                    <Link to="/signin">
-                        <Button style={{padding: '0.75rem 2rem', fontSize: '1.125rem'}}>
-                            Get Started <ArrowRight size={20} style={{marginLeft: '0.5rem'}} />
-                        </Button>
-                    </Link>
+                <div className="animate-fade-in-up delay-300" style={{ display: 'flex', gap: '1rem' }}>
+                    <Link to="/signup" className="btn btn-primary" style={{ padding: '0.875rem 1.5rem', fontSize: '1rem' }}>Get Started</Link>
+                    <Link to="/help" className="btn btn-secondary" style={{ padding: '0.875rem 1.5rem', fontSize: '1rem' }}>Explore Platform</Link>
                 </div>
 
-                <div style={{display: 'flex', gap: '2rem', marginTop: '4rem', opacity: 0.7}}>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)'}}>
-                        <Globe size={20} /> Data-Driven Discovery
-                    </div>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)'}}>
-                        <Building size={20} /> Enterprise Matching
-                    </div>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)'}}>
-                        <ShieldCheck size={20} /> Verified Compliance
-                    </div>
+                <div className="animate-fade-in-up delay-300 mt-4" style={{ marginTop: '5rem', display: 'flex', gap: '1.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                    {['CSR Need', '?', 'AI Analysis', '?', 'NGO Matching', '?', 'Recommendation', '?', 'Tracking'].map((step, i) => (
+                        <div key={i} style={{ padding: step === '?' ? '0.75rem 0' : '0.75rem 1.5rem', background: step === '?' ? 'transparent' : 'var(--surface)', border: step === '?' ? 'none' : '1px solid var(--border)', borderRadius: 'var(--radius-full)', fontWeight: step === '?' ? 400 : 600, color: step === '?' ? 'var(--text-tertiary)' : 'var(--text-secondary)', fontSize: '0.875rem', boxShadow: step === '?' ? 'none' : 'var(--shadow-sm)' }}>
+                            {step}
+                        </div>
+                    ))}
                 </div>
             </main>
-
-            <footer style={{padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)', borderTop: '1px solid var(--border)', fontSize: '0.875rem', marginTop: 'auto'}}>
-                <Link to="/privacy-policy" style={{color: 'inherit', textDecoration: 'none'}}>Privacy Policy</Link>
-            </footer>
         </div>
     );
 };

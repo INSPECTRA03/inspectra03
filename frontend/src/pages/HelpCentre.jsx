@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { PageHeader } from '../components/UI';
+import { PageHeader, Card, CardHeader, CardBody, Badge, Button, LoadingState, ErrorState, Skeleton, SkeletonCard, StatusBadge, EmptyState } from '../components/UI';
+
+
 import { Search, ChevronDown, ChevronUp } from 'lucide-react';
 
 const FAQS = [
@@ -65,7 +67,7 @@ const HelpCentre = () => {
                 subtitle="Frequently asked questions and guides for using the Inspectra platform."
             />
 
-            <div className="card mb-4">
+            <div className="card mb-4 animate-fade-in-up">
                 <div className="card-body" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <Search size={20} color="var(--text-secondary)" />
                     <input 

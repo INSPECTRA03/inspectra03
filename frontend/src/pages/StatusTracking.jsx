@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { PageHeader, Card, CardHeader, CardBody, Badge, Button, LoadingState, ErrorState, Skeleton, SkeletonCard, StatusBadge, EmptyState } from '../components/UI';
+
 import { Link } from 'react-router-dom';
-import { PageHeader, LoadingState, ErrorState, StatusBadge } from '../components/UI';
+
 import { Activity, Users, MapPin, Tag } from 'lucide-react';
 import { fetchCSRNeeds } from '../services/api';
 
@@ -31,8 +33,8 @@ const StatusTracking = () => {
         load();
     }, []);
     
-    if (loading) return <LoadingState text="Loading status board..." />;
-    if (error) return <ErrorState message={error} onRetry={() => window.location.reload()} />;
+if (loading) return <div className="page-container"><LoadingState /></div>;
+if (error) return <div className="page-container animate-fade-in-up"><ErrorState message={error} onRetry={loadHistory} /></div>;
 
     return (
         <div className="animate-fade-in-up" style={{height: '100%', display: 'flex', flexDirection: 'column'}}>

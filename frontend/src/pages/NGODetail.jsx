@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { PageHeader, Card, CardHeader, CardBody, Badge, Button, LoadingState, ErrorState, Skeleton, SkeletonCard, StatusBadge, EmptyState } from '../components/UI';
+
 import { useParams } from 'react-router-dom';
 import { fetchNGO, fetchCSRProjects, fetchNGODocuments, uploadNGODocument, downloadDocumentUrl } from '../services/api';
-import { PageHeader, LoadingState, ErrorState, Button } from '../components/UI';
+
 import { getRole } from '../services/auth';
 import { FileUp, File, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
 
@@ -78,9 +80,9 @@ const NGODetail = () => {
         }
     };
 
-    if (loading) return <LoadingState />;
-    if (error) return <ErrorState message={error} />;
-    if (!ngo) return <ErrorState message="NGO not found" />;
+if (loading) return <div className="page-container"><LoadingState /></div>;
+if (error) return <div className="page-container animate-fade-in-up"><ErrorState message={error} /></div>;
+if (!ngo) return <div className="page-container animate-fade-in-up"><ErrorState message="NGO not found" /></div>;
 
     return (
         <div className="animate-fade-in-up" style={{maxWidth: '900px'}}>
@@ -246,15 +248,15 @@ const NGODetail = () => {
                     <div className="form-grid">
                         <div>
                             <span className="text-muted" style={{display: 'block', fontSize: '0.875rem', marginBottom: '0.25rem'}}>Sectors</span>
-                            <strong>{ngo.sectors.replace(/\|/g, ', ')}</strong>
+                            <strong>{(ngo.sectors || "").replace(/\|/g, ', ')}</strong>
                         </div>
                         <div>
                             <span className="text-muted" style={{display: 'block', fontSize: '0.875rem', marginBottom: '0.25rem'}}>Locations</span>
-                            <strong>{ngo.locations.replace(/\|/g, ', ')}</strong>
+                            <strong>{(ngo.locations || "").replace(/\|/g, ', ')}</strong>
                         </div>
                         <div>
                             <span className="text-muted" style={{display: 'block', fontSize: '0.875rem', marginBottom: '0.25rem'}}>Beneficiary Types</span>
-                            <strong>{ngo.beneficiary_types.replace(/\|/g, ', ')}</strong>
+                            <strong>{(ngo.beneficiary_types || "").replace(/\|/g, ', ')}</strong>
                         </div>
                         <div>
                             <span className="text-muted" style={{display: 'block', fontSize: '0.875rem', marginBottom: '0.25rem'}}>Experience</span>
